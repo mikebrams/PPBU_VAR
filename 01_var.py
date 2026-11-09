@@ -9,6 +9,7 @@ from time import sleep
 
 
 def target_field_update(event=None):
+    """Обновляет курс выбранной из списка криптовалюты"""
     if crypto_json:
         item = crypto_combo.get()
         base = crypto[item]
@@ -28,6 +29,7 @@ def target_field_update(event=None):
 
 
 def change_24_update():
+    """Показывает изменение курса за последние 24 часа в %"""
     if crypto_json:
         item = crypto_combo.get()
         base = crypto[item]
@@ -46,6 +48,7 @@ def change_24_update():
 
 
 def change_last_update():
+    """Показывает изменение курса относительно последнего обновления в %"""
     if crypto_json and previous_crypto_json:
         item = crypto_combo.get()
         base = crypto[item]
@@ -65,15 +68,37 @@ def change_last_update():
         last_change_value.config(text='-', fg='black')
 
 
-def auto_refresh():
-    """Функция автоматического обновления главного окна программы
-    через произвольный период времени - 45-60 сек - и загрузки новых котировок"""
+def start_refresh():
+    """Старт обновления курсов с сайта и запуск таймера обратного отсчета на кнопке"""
+    global time_to_refresh
+
     target_field.config(text='Загрузка курсов с сайта coingecko.com... ')
+    refresh_btn.config(text='Обновление...')
     refresh_label.config(text='Загрузка... ')
+    refresh_btn.config(state='disabled')
+
     root.update()
     sleep(2)
     refresh_rates()
-    root.after(random.randint(45000, 60000), auto_refresh)
+
+    refresh_btn.config(state='normal')
+#     time_to_refresh = random.randint(61, 71)
+#     print('Старт')
+#     button_countdown()
+#
+#
+# def button_countdown():
+#     """Таймер обратного отсчета на кнопке обновления курсов валют"""
+#     global time_to_refresh
+#
+#     print(time_to_refresh)
+#     if time_to_refresh > 0:
+#         time_to_refresh -= 1
+#         refresh_btn.config(text=f'Авто обновление курсов через {time_to_refresh} сек.')
+#         root.after(1000, button_countdown)
+#     else:
+#         refresh_btn.config(text='Обновление...')
+#         root.after(time_to_refresh * 1000, start_refresh)
 
 
 def refresh_rates():
@@ -82,7 +107,7 @@ def refresh_rates():
 
     previous_crypto_json = copy.deepcopy(crypto_json)
 
-    url = "https://api.coingecko.com/api/v3/simple/price"
+    # url = "https://api.coingecko.com/api/v3/simple/price"
     params = {
         "ids": ",".join(crypto.values()),
         "vs_currencies": "usd",
@@ -121,6 +146,8 @@ crypto = {
 
 crypto_json = {}
 previous_crypto_json = {}
+time_to_refresh = 0
+countdown = None
 
 root = Tk()
 root.title('Курсы популярных криптовалют')
@@ -128,7 +155,7 @@ w = root.winfo_screenwidth()
 h = root.winfo_screenheight()
 w2 = w // 4
 h2 = h // 3
-root.geometry(f'410x400+{w2}+{h2}')
+root.geometry(f'410x430+{w2}+{h2}')
 
 # frame1 -------------------------------------------
 frame1 = Frame(bg='lightgray')
@@ -176,16 +203,23 @@ last_change_label.grid(row=1, column=0, padx=(10, 0), pady=(5, 10), sticky='w')
 last_change_value = Label(frame4, text='0.00 %', bg='lightgray', font=('Verdana', 10, 'bold'), width=8)
 last_change_value.grid(row=1, column=2, sticky='e')
 
-# -------------------------------------------------
-refresh_btn = Button(text='Обновить курсы для списка криптовалют', command=refresh_rates, bg='lightgray',
-                     font=('Verdana', 10))
-refresh_btn.pack(padx=10, pady=(4, 5), fill='both')
+# frame5 -------------------------------------------
+frame5 = Frame(bg='lightgray')
+frame5.pack(padx=10, pady=(4, 0), fill='both')
+
+refresh_btn = Button(frame5, text='Обновление...',
+                     command=start_refresh, bg='Lavender', font=('Verdana', 10))
+refresh_btn.pack(padx=10, pady=(10, 0), fill='both')
+
+flag = BooleanVar(value=True)
+auto_scenario = Checkbutton(frame5, text="Включить / отключить автообновление курсов",
+                            bg='lightgray', variable=flag, offvalue=False)
+auto_scenario.pack(pady=3)
 
 # -------------------------------------------------
 refresh_label = Label(text='Загрузка... ', fg='DimGray')
-refresh_label.pack(pady=(5, 0))
+refresh_label.pack(pady=(4, 0))
 
-# root.after(1500, auto_refresh)
-auto_refresh()
+start_refresh()
 
 root.mainloop()
