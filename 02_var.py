@@ -84,7 +84,6 @@ def start_refresh():
     refresh_rates()
 
     refresh_btn.config(state='normal')
-    # refresh_btn.config(text='Обновить курсы для списка криптовалют')
 
     time_to_refresh = random.randint(25, 26)
     print('Старт')
@@ -96,12 +95,15 @@ def button_countdown():
     """Таймер обратного отсчета на кнопке обновления курсов валют"""
     global time_to_refresh
 
-    if countdown is None:
+    toggle_flag = flag.get()
+
+
+    if countdown is None or not toggle_flag:
         return
     print(time_to_refresh)
     if time_to_refresh > 0:
         time_to_refresh -= 1
-        refresh_btn.config(text=f'Авто обновление курсов через {time_to_refresh} сек.')
+        refresh_btn.config(text=f'Автообновление курсов через {time_to_refresh} сек.')
         root.after(1000, button_countdown)
     else:
         refresh_btn.config(text='Обновление...')
