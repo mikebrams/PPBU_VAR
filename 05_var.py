@@ -75,6 +75,8 @@ def change_last_update():
 
 def add_to_chart():
     """Создание словаря изменений котировок для графика"""
+    global max_value_yaxis, min_value_yaxis
+
     if crypto_json:
         for base_cur in crypto.values():
             if base_cur not in crypto_json:
@@ -82,6 +84,8 @@ def add_to_chart():
             else:
                 value = crypto_json[base_cur]['usd_24h_change']
                 chart.setdefault(base_cur, {'Изменение за 24 часа': [], 'Изменение с предыдущего запроса': [0.00]})
+
+                values_yaxis.add(value)
 
                 if len(chart[base_cur]['Изменение за 24 часа']) < 10:
                     chart[base_cur]['Изменение за 24 часа'].append(round(value, 2))
@@ -98,46 +102,58 @@ def add_to_chart():
                 rate = crypto_json[base_cur]['usd']
                 change = (rate - rate_prev) / rate_prev * 100
 
+                values_yaxis.add(change) # добавление значения
+
                 if len(chart[base_cur]['Изменение с предыдущего запроса']) < 10:
                     chart[base_cur]['Изменение с предыдущего запроса'].append(round(change, 2))
                 else:
                     chart[base_cur]['Изменение с предыдущего запроса'].pop(0)
                     chart[base_cur]['Изменение с предыдущего запроса'].append(round(change, 2))
 
+    if values_yaxis:
+        max_value_yaxis = max(values_yaxis)
+        min_value_yaxis = min(values_yaxis)
+    print(values_yaxis)
+
+
 
 def diagram():
     ax.clear()  # очистка графика
 
     base_c = crypto_combo.get()
-    item = crypto[base_c]
+    item = crypto[base_c]   # название криптовалюты из словаря валют - 'bitcoin'
 
-    change24_items = chart[item]['Изменение за 24 часа']
-    change_last_items = chart[item]['Изменение с предыдущего запроса']
+    if item in chart:
+        change24_items = chart[item]['Изменение за 24 часа']
+        change_last_items = chart[item]['Изменение с предыдущего запроса']
 
-    # графики
-    ax.plot(change24_items, marker='o', label='за 24 часа')
-    ax.plot(change_last_items, marker='o', label='с предыдущего запроса')
+        # графики
+        ax.plot(change24_items, marker='o', label='за 24 часа')
+        ax.plot(change_last_items, marker='o', label='с предыдущего запроса')
 
-    for i, value in enumerate(change24_items):  # подписи значений
-        ax.annotate(f'{value}%', (i, value),
-                    textcoords="offset points", xytext=(0, 10), ha='center')
+        for i, value in enumerate(change24_items):  # подписи значений
+            ax.annotate(f'{value}%', (i, value),
+                        textcoords="offset points", xytext=(0, -15), ha='center',
+                        fontsize=8, color='DodgerBlue')
 
-    for i, value in enumerate(change_last_items):  # подписи значений
-        ax.annotate(f'{value}%', (i, value),
-                    textcoords="offset points", xytext=(0, -15), ha='center')
+        for i, value in enumerate(change_last_items):  # подписи значений
+            ax.annotate(f'{value}%', (i, value),
+                        textcoords="offset points", xytext=(0, 10), ha='center',
+                        fontsize=8, color='OrangeRed')
 
-    ax.set_title(f"Изменение курса {base_c}")
-    ax.set_xlabel("Время обновления")
-    ax.set_ylabel("Изменение, %")
+        ax.set_title(f"Изменение курса {base_c}")
+        ax.set_xlabel("Время обновления")
+        ax.set_ylabel("Изменение, %")
 
-    ax.set_xlim(-0.3, 9.3)
-    ax.set_xticks(range(10))
-    ax.set_ylim(-10, 10)
-    ax.set_xticklabels(renew_time)  # названия по оси X
+        ax.set_xlim(-0.3, 9.3)
+        ax.set_xticks(range(10))
+
+        ax.set_ylim(int(min_value_yaxis) - 2, int(max_value_yaxis) + 2)
+        ax.tick_params(axis='both', labelsize=8, labelcolor='gray') # изменение шрифтов осей
+        ax.set_xticklabels(renew_time)  # названия по оси X
+        ax.legend()
 
     ax.grid(True)
-    ax.legend()
-
     fig.tight_layout()
     canvas.draw_idle()  # перерисовка графика
 
@@ -160,7 +176,6 @@ def start_refresh():
     refresh_btn.config(state='normal')
 
     time_to_refresh = random.randint(61, 71)
-    print('Старт')
     countdown = True
     button_countdown()
 
@@ -175,7 +190,6 @@ def button_countdown():
         return
 
     if toggle_flag:
-        print(time_to_refresh)
         time_to_refresh -= 1
         if time_to_refresh > 0:
             refresh_btn.config(text=f'Автообновление курсов через {time_to_refresh} сек.')
@@ -189,7 +203,7 @@ def button_countdown():
 
 def refresh_rates():
     """Получение курсов с сайта в формате json"""
-    global crypto_json, previous_crypto_json, renew_time
+    global crypto_json, previous_crypto_json, renew_time, values_yaxis
 
     previous_crypto_json = copy.deepcopy(crypto_json)
 
@@ -221,7 +235,8 @@ def refresh_rates():
         target_field.config(text='Ошибка при загрузке курсов', font=('Verdana', 11))
         refresh_label.config(text='Данные обновлены:   --.--.----   --:--:--')
 
-    add_to_chart()
+    values_yaxis = set()    # сброс значений для поиска МИН/МАКС оси Y
+    add_to_chart()  #
     target_field_update()
     pprint.pprint(chart)
 
@@ -247,6 +262,9 @@ previous_crypto_json = {}  # копия предыдущего json-файла �
 time_to_refresh = 0
 countdown = None
 renew_time = ['', '', '', '', '', '', '', '', '', '']
+values_yaxis = set()    # множество значений изменений котировок для поиска мин/макс
+max_value_yaxis = 0 # значение изменений котировок для установки МАКС значения оси Y
+min_value_yaxis = 0 # значение изменений котировок для установки МИН значения оси Y
 
 root = Tk()
 root.title('Курсы популярных криптовалют')
@@ -295,13 +313,15 @@ target_field.pack(padx=10, pady=10, fill='both')
 frame4 = Frame(left, bg='lightgray')
 frame4.pack(padx=10, pady=(0, 4), fill='both')
 
-change_label = Label(frame4, text='Изменение курса за последние 24 часа', bg='lightgray', font=('Verdana', 10))
+change_label = Label(frame4, text='Изменение курса за последние 24 часа', bg='lightgray',
+                     font=('Verdana', 10))
 change_label.grid(row=0, column=0, padx=(10, 0), pady=(5, 5), sticky='w')
 
 change24_value = Label(frame4, text='-', bg='lightgray', font=('Verdana', 10, 'bold'), width=8)
 change24_value.grid(row=0, column=2, sticky='e')
 
-last_change_label = Label(frame4, text='Изменение курса c предыдущего запроса', bg='lightgray', font=('Verdana', 10))
+last_change_label = Label(frame4, text='Изменение курса c предыдущего запроса', bg='lightgray',
+                          font=('Verdana', 10))
 last_change_label.grid(row=1, column=0, padx=(10, 0), pady=(5, 10), sticky='w')
 
 last_change_value = Label(frame4, text='-', bg='lightgray', font=('Verdana', 10, 'bold'), width=8)
