@@ -74,8 +74,8 @@ def change_last_update():
 
 
 def add_to_chart():
-    """Создание словаря изменений котировок для графика"""
-    global max_value_yaxis, min_value_yaxis
+    """Создание словаря изменений котировок для графика и списка макс/мин значений для значений оси Y"""
+    global values_yaxis, max_value_yaxis, min_value_yaxis
 
     if crypto_json:
         for base_cur in crypto.values():
@@ -85,7 +85,7 @@ def add_to_chart():
                 value = crypto_json[base_cur]['usd_24h_change']
                 chart.setdefault(base_cur, {'Изменение за 24 часа': [], 'Изменение с предыдущего запроса': [0.00]})
 
-                values_yaxis.add(value)
+                values_yaxis.append(int(value))  # добавление значения в список для мин/макс оси Y
 
                 if len(chart[base_cur]['Изменение за 24 часа']) < 10:
                     chart[base_cur]['Изменение за 24 часа'].append(round(value, 2))
@@ -102,7 +102,7 @@ def add_to_chart():
                 rate = crypto_json[base_cur]['usd']
                 change = (rate - rate_prev) / rate_prev * 100
 
-                values_yaxis.add(change) # добавление значения
+                values_yaxis.append(int(change))  # добавление значения в список для мин/макс оси Y
 
                 if len(chart[base_cur]['Изменение с предыдущего запроса']) < 10:
                     chart[base_cur]['Изменение с предыдущего запроса'].append(round(change, 2))
@@ -110,18 +110,19 @@ def add_to_chart():
                     chart[base_cur]['Изменение с предыдущего запроса'].pop(0)
                     chart[base_cur]['Изменение с предыдущего запроса'].append(round(change, 2))
 
-    if values_yaxis:
+    if values_yaxis:  # сдвиг значений МИН/МАКС, используемых для графика по оси X
+        if len(values_yaxis) > 240:
+            rest_of_len = len(values_yaxis) % 240
+            values_yaxis = values_yaxis[rest_of_len:]
         max_value_yaxis = max(values_yaxis)
         min_value_yaxis = min(values_yaxis)
-    print(values_yaxis)
-
 
 
 def diagram():
     ax.clear()  # очистка графика
 
     base_c = crypto_combo.get()
-    item = crypto[base_c]   # название криптовалюты из словаря валют - 'bitcoin'
+    item = crypto[base_c]  # название криптовалюты из словаря валют - 'bitcoin'
 
     if item in chart:
         change24_items = chart[item]['Изменение за 24 часа']
@@ -149,12 +150,14 @@ def diagram():
         ax.set_xticks(range(10))
 
         ax.set_ylim(int(min_value_yaxis) - 2, int(max_value_yaxis) + 2)
-        ax.tick_params(axis='both', labelsize=8, labelcolor='gray') # изменение шрифтов осей
+        ax.tick_params(axis='both', labelsize=8, labelcolor='gray')  # изменение шрифтов осей
         ax.set_xticklabels(renew_time)  # названия по оси X
         ax.legend()
 
     ax.grid(True)
-    fig.tight_layout()
+    fig.tight_layout()  # Matplotlib автоматически настраивает отступы между подграфиками
+    # (субплотами) и вокруг них, чтобы элементы — подписи осей, заголовки,
+    # метки тиков — не накладывались друг на друга
     canvas.draw_idle()  # перерисовка графика
 
 
@@ -203,7 +206,7 @@ def button_countdown():
 
 def refresh_rates():
     """Получение курсов с сайта в формате json"""
-    global crypto_json, previous_crypto_json, renew_time, values_yaxis
+    global crypto_json, previous_crypto_json, renew_time
 
     previous_crypto_json = copy.deepcopy(crypto_json)
 
@@ -224,7 +227,7 @@ def refresh_rates():
         hours_hm = now.strftime("%H:%M")
         refresh_label.config(text=f'Данные обновлены:   {day}   {hours}')
 
-        if '' in renew_time:  # обновление подписей оси X на графике
+        if '' in renew_time:  # обновление списка времени загрузки данных для подписей оси X на графике
             old = renew_time.index('')
             renew_time[old] = hours_hm
         else:
@@ -235,10 +238,8 @@ def refresh_rates():
         target_field.config(text='Ошибка при загрузке курсов', font=('Verdana', 11))
         refresh_label.config(text='Данные обновлены:   --.--.----   --:--:--')
 
-    values_yaxis = set()    # сброс значений для поиска МИН/МАКС оси Y
-    add_to_chart()  #
+    add_to_chart()
     target_field_update()
-    pprint.pprint(chart)
 
 
 crypto = {
@@ -256,15 +257,15 @@ crypto = {
     'Zcash (ZEC)': 'zcash'
 }
 
-chart = {}  # словарь изменения курса за 24 часа и с предыдущего запроса
+chart = {}  # словарь 10 последних запросов: изменение курса за 24 часа и с предыдущего запроса
 crypto_json = {}  # json-файл полученный от сервера
 previous_crypto_json = {}  # копия предыдущего json-файла для сравнения курсов
 time_to_refresh = 0
 countdown = None
 renew_time = ['', '', '', '', '', '', '', '', '', '']
-values_yaxis = set()    # множество значений изменений котировок для поиска мин/макс
-max_value_yaxis = 0 # значение изменений котировок для установки МАКС значения оси Y
-min_value_yaxis = 0 # значение изменений котировок для установки МИН значения оси Y
+values_yaxis = []  # список значений изменений котировок для поиска мин/макс
+max_value_yaxis = 0  # значение изменений котировок для установки МАКС значения оси Y
+min_value_yaxis = 0  # значение изменений котировок для установки МИН значения оси Y
 
 root = Tk()
 root.title('Курсы популярных криптовалют')
@@ -349,7 +350,7 @@ frame6.pack(side="left", padx=(0, 10), pady=(4, 10), fill='both', expand=True)
 
 fig = Figure(figsize=(10, 5), dpi=100)
 ax = fig.add_subplot(111)
-canvas = FigureCanvasTkAgg(fig, master=frame6)  # Встраиваем график в Tkinter
+canvas = FigureCanvasTkAgg(fig, master=frame6)  # встраиваем график в Tkinter
 canvas.get_tk_widget().pack(fill=BOTH, expand=True)
 
 start_refresh()
