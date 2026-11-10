@@ -7,6 +7,7 @@ import copy
 import random
 from time import sleep
 import pprint
+import matplotlib.pyplot as plt
 
 
 def target_field_update(event=None):
@@ -27,6 +28,8 @@ def target_field_update(event=None):
 
     change_24_update()
     change_last_update()
+    add_to_chart()
+    root.after(500, diagram)
 
 
 def change_24_update():
@@ -49,7 +52,7 @@ def change_24_update():
 
 
 def change_last_update():
-    """Показывает изменение курса относительно последнего обновления в %"""
+    """Показывает изменение курса относительно предыдущего обновления в %"""
     if crypto_json and previous_crypto_json:
         item = crypto_combo.get()
         base = crypto[item]
@@ -69,47 +72,73 @@ def change_last_update():
         last_change_value.config(text='-', fg='black')
 
 
+
 def add_to_chart():
     """Создание словаря изменений котировок для графика"""
     if crypto_json:
-        try:
-            for base_cur in crypto.values():
+        for base_cur in crypto.values():
+            if base_cur not in crypto_json:
+                continue
+            else:
                 value = crypto_json[base_cur]['usd_24h_change']
-                chart.setdefault(base_cur, {'Изменение за 24 часа': [], 'Изменение с последнего запроса': []})
+                chart.setdefault(base_cur, {'Изменение за 24 часа': [], 'Изменение с предыдущего запроса': [0.00]})
 
                 if len(chart[base_cur]['Изменение за 24 часа']) < 3:
-                    chart[base_cur]['Изменение за 24 часа'].append(value)
+                    chart[base_cur]['Изменение за 24 часа'].append(round(value, 2))
                 else:
                     chart[base_cur]['Изменение за 24 часа'].pop(0)
-                    chart[base_cur]['Изменение за 24 часа'].append(value)
-
-        except KeyError:
-            print('Ошибка создания словаря для графика 1')
-    else:
-        print('Ошибка создания словаря для графика 2')
-        return
+                    chart[base_cur]['Изменение за 24 часа'].append(round(value, 2))
 
     if previous_crypto_json:
-        try:
-            for base_cur in crypto.values():
-
+        for base_cur in crypto.values():
+            if base_cur not in crypto_json and base_cur not in previous_crypto_json:
+                continue
+            else:
                 rate_prev = previous_crypto_json[base_cur]['usd']
                 rate = crypto_json[base_cur]['usd']
                 change = (rate - rate_prev) / rate_prev * 100
 
-                if len(chart[base_cur]['Изменение с последнего запроса']) < 3:
-                    chart[base_cur]['Изменение с последнего запроса'].append(change)
+                if len(chart[base_cur]['Изменение с предыдущего запроса']) < 3:
+                    chart[base_cur]['Изменение с предыдущего запроса'].append(round(change, 2))
                 else:
-                    chart[base_cur]['Изменение с последнего запроса'].pop(0)
-                    chart[base_cur]['Изменение с последнего запроса'].append(change)
+                    chart[base_cur]['Изменение с предыдущего запроса'].pop(0)
+                    chart[base_cur]['Изменение с предыдущего запроса'].append(round(change, 2))
 
-        except KeyError:
-            print('Ошибка создания словаря для графика 3')
-    else:
-        for base_cur in crypto.values():
-            chart[base_cur]['Изменение с последнего запроса'].append(0)
 
-    pprint.pprint(chart)
+    # pprint.pprint(chart)
+
+
+
+def diagram():
+    plt.figure(figsize=(10, 5))
+
+    print(chart)
+    base_c = crypto_combo.get()
+    item = crypto[base_c]
+    print(item)
+
+    # Рисуем графики
+    plt.plot(chart[item]['Изменение за 24 часа'],
+             marker='o', label='за 24 часа')
+
+    plt.plot(chart[item]['Изменение с предыдущего запроса'],
+             marker='o', label='с предыдущего запроса')
+
+    # Настраиваем оси
+    plt.xlim(-0.3, 9.3)  # Всего 10 позиций
+    plt.xticks(range(10))  # Деления от 0 до 9
+
+    plt.title(f'Изменение курса {base_c}')
+    plt.xlabel('Количество измерений')
+    plt.ylabel('Изменение, %')
+
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+
+
+
 
 
 def start_refresh():
@@ -129,7 +158,7 @@ def start_refresh():
 
     refresh_btn.config(state='normal')
 
-    time_to_refresh = random.randint(61, 71)
+    time_to_refresh = random.randint(35, 40)
     print('Старт')
     countdown = True
     button_countdown()
@@ -184,7 +213,7 @@ def refresh_rates():
         refresh_label.config(text='Данные обновлены:   --.--.----   --:--:--')
 
     target_field_update()
-    add_to_chart()
+
 
 
 crypto = {
@@ -202,7 +231,7 @@ crypto = {
     'Zcash (ZEC)': 'zcash'
 }
 
-chart = {}  # словарь изменения курса за 24 часа и с последнего запроса
+chart = {}  # словарь изменения курса за 24 часа и с предыдущего запроса
 crypto_json = {}  # json-файл полученный от сервера
 previous_crypto_json = {}  # копия предыдущего json-файла для сравнения курсов
 time_to_refresh = 0
@@ -290,3 +319,52 @@ frame6.pack(side="left", padx=(0, 10), pady=(4, 10), fill='both', expand=True)
 start_refresh()
 
 root.mainloop()
+
+
+
+crypto = {
+    'Bitcoin (BTC)': 'bitcoin',
+    'Binancecoin (BNB)': 'binancecoin',
+    'Bitcoin-cash (BCH)': 'bitcoin-cash',
+    'Bittensor (TAO)': 'bittensor',
+    'Ethereum (ETH)': 'ethereum',
+    'Hyperliquid (HYPE)': 'hyperliquid',
+    'Monero (XMR)': 'monero',
+    'Pax-gold (PAXG)': 'pax-gold',
+    'Quant-network (QNT)': 'quant-network',
+    'Solana (SOL)': 'solana',
+    'Tether-gold (XAUT)': 'tether-gold',
+    'Zcash (ZEC)': 'zcash'
+}
+
+
+chart = {'binancecoin': {'Изменение за 24 часа': [0.44368187197112374],
+                 'Изменение с предыдущего запроса': [0]},
+ 'bitcoin': {'Изменение за 24 часа': [-0.6353413888620077],
+             'Изменение с предыдущего запроса': [0]},
+ 'bitcoin-cash': {'Изменение за 24 часа': [-2.9922718797642047],
+                  'Изменение с предыдущего запроса': [0]},
+ 'bittensor': {'Изменение за 24 часа': [-0.055168515669738356],
+               'Изменение с предыдущего запроса': [0]},
+ 'ethereum': {'Изменение за 24 часа': [-1.6612432298216158],
+              'Изменение с предыдущего запроса': [0]},
+ 'hyperliquid': {'Изменение за 24 часа': [-0.2041200824058869],
+                 'Изменение с предыдущего запроса': [0]},
+ 'monero': {'Изменение за 24 часа': [-8.31115664834746],
+            'Изменение с предыдущего запроса': [0]},
+ 'pax-gold': {'Изменение за 24 часа': [-0.712822548362917],
+              'Изменение с предыдущего запроса': [0]},
+ 'quant-network': {'Изменение за 24 часа': [-7.419764625295189],
+                   'Изменение с предыдущего запроса': [0]},
+ 'solana': {'Изменение за 24 часа': [-2.7409496011289636],
+            'Изменение с предыдущего запроса': [0]},
+ 'tether-gold': {'Изменение за 24 часа': [-0.7226662295295294],
+                 'Изменение с предыдущего запроса': [0]},
+ 'zcash': {'Изменение за 24 часа': [-5.872940188517272],
+           'Изменение с предыдущего запроса': [0]}}
+
+item = crypto[crypto_combo.get()]
+print(item)
+
+plt.plot(chart[item]['Изменение за 24 часа'],
+         marker='o', label='за 24 часа')
