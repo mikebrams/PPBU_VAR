@@ -8,6 +8,8 @@ import random
 from time import sleep
 import pprint
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 
 
 def target_field_update(event=None):
@@ -28,7 +30,6 @@ def target_field_update(event=None):
 
     change_24_update()
     change_last_update()
-    add_to_chart()
     root.after(500, diagram)
 
 
@@ -83,7 +84,7 @@ def add_to_chart():
                 value = crypto_json[base_cur]['usd_24h_change']
                 chart.setdefault(base_cur, {'Изменение за 24 часа': [], 'Изменение с предыдущего запроса': [0.00]})
 
-                if len(chart[base_cur]['Изменение за 24 часа']) < 3:
+                if len(chart[base_cur]['Изменение за 24 часа']) < 10:
                     chart[base_cur]['Изменение за 24 часа'].append(round(value, 2))
                 else:
                     chart[base_cur]['Изменение за 24 часа'].pop(0)
@@ -98,7 +99,7 @@ def add_to_chart():
                 rate = crypto_json[base_cur]['usd']
                 change = (rate - rate_prev) / rate_prev * 100
 
-                if len(chart[base_cur]['Изменение с предыдущего запроса']) < 3:
+                if len(chart[base_cur]['Изменение с предыдущего запроса']) < 10:
                     chart[base_cur]['Изменение с предыдущего запроса'].append(round(change, 2))
                 else:
                     chart[base_cur]['Изменение с предыдущего запроса'].pop(0)
@@ -110,31 +111,36 @@ def add_to_chart():
 
 
 def diagram():
-    plt.figure(figsize=(10, 5))
 
-    print(chart)
+    ax.clear()  # очистка графика
+
+    pprint.pprint(chart)
     base_c = crypto_combo.get()
     item = crypto[base_c]
-    print(item)
 
-    # Рисуем графики
-    plt.plot(chart[item]['Изменение за 24 часа'],
+    # графики
+    ax.plot(chart[item]['Изменение за 24 часа'],
              marker='o', label='за 24 часа')
-
-    plt.plot(chart[item]['Изменение с предыдущего запроса'],
+    ax.plot(chart[item]['Изменение с предыдущего запроса'],
              marker='o', label='с предыдущего запроса')
 
-    # Настраиваем оси
-    plt.xlim(-0.3, 9.3)  # Всего 10 позиций
-    plt.xticks(range(10))  # Деления от 0 до 9
+    ax.set_title(f"Изменение курса {base_c}")
+    ax.set_xlabel("Время обновления")
+    ax.set_ylabel("Изменение, %")
 
-    plt.title(f'Изменение курса {base_c}')
-    plt.xlabel('Количество измерений')
-    plt.ylabel('Изменение, %')
+    ax.set_xlim(-0.3, 9.3)
+    ax.set_xticks(range(10))
 
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+    # Названия по оси X
+    ax.set_xticklabels(renew_time)
+
+    ax.grid(True)
+    ax.legend()
+
+    fig.tight_layout()
+
+    # Перерисовываем график
+    canvas.draw_idle()  #
 
 
 
@@ -158,7 +164,7 @@ def start_refresh():
 
     refresh_btn.config(state='normal')
 
-    time_to_refresh = random.randint(35, 40)
+    time_to_refresh = random.randint(40, 45)
     print('Старт')
     countdown = True
     button_countdown()
@@ -205,13 +211,22 @@ def refresh_rates():
         crypto_json = response.json()
 
         now = datetime.now()
-        refresh_label.config(text=f'Данные обновлены:   {now.strftime("%d.%m.%Y")}   {now.strftime("%H:%M:%S")}')
+        day = now.strftime("%d.%m.%Y")
+        hours = now.strftime("%H:%M:%S")
+        refresh_label.config(text=f'Данные обновлены:   {day}   {hours}')
+
+
+
+
+
 
     except Exception as e:
         mb.showerror('Ошибка', f'Ошибка загрузки курсов: {e}')
         target_field.config(text='Ошибка при загрузке курсов', font=('Verdana', 11))
         refresh_label.config(text='Данные обновлены:   --.--.----   --:--:--')
 
+
+    add_to_chart()
     target_field_update()
 
 
@@ -236,6 +251,7 @@ crypto_json = {}  # json-файл полученный от сервера
 previous_crypto_json = {}  # копия предыдущего json-файла для сравнения курсов
 time_to_refresh = 0
 countdown = None
+renew_time = ['', '', '', '', '', '', '', '', '', '']
 
 root = Tk()
 root.title('Курсы популярных криптовалют')
@@ -243,7 +259,7 @@ w = root.winfo_screenwidth()
 h = root.winfo_screenheight()
 w2 = w // 6
 h2 = h // 4
-root.geometry(f'910x430+{w2}+{h2}')
+root.geometry(f'1000x430+{w2}+{h2}')
 
 # Left frame -------------------------------------------
 left = Frame(root, width=410)
@@ -316,55 +332,13 @@ refresh_label.pack(pady=(4, 0), fill='both')
 frame6 = Frame(root, bg='lightgray')
 frame6.pack(side="left", padx=(0, 10), pady=(4, 10), fill='both', expand=True)
 
+fig = Figure(figsize=(10, 5), dpi=100)
+ax = fig.add_subplot(111)
+canvas = FigureCanvasTkAgg(fig, master=frame6) # Встраиваем график в Tkinter
+canvas.get_tk_widget().pack(fill=BOTH, expand=True)
+
+
+
 start_refresh()
 
 root.mainloop()
-
-
-
-crypto = {
-    'Bitcoin (BTC)': 'bitcoin',
-    'Binancecoin (BNB)': 'binancecoin',
-    'Bitcoin-cash (BCH)': 'bitcoin-cash',
-    'Bittensor (TAO)': 'bittensor',
-    'Ethereum (ETH)': 'ethereum',
-    'Hyperliquid (HYPE)': 'hyperliquid',
-    'Monero (XMR)': 'monero',
-    'Pax-gold (PAXG)': 'pax-gold',
-    'Quant-network (QNT)': 'quant-network',
-    'Solana (SOL)': 'solana',
-    'Tether-gold (XAUT)': 'tether-gold',
-    'Zcash (ZEC)': 'zcash'
-}
-
-
-chart = {'binancecoin': {'Изменение за 24 часа': [0.44368187197112374],
-                 'Изменение с предыдущего запроса': [0]},
- 'bitcoin': {'Изменение за 24 часа': [-0.6353413888620077],
-             'Изменение с предыдущего запроса': [0]},
- 'bitcoin-cash': {'Изменение за 24 часа': [-2.9922718797642047],
-                  'Изменение с предыдущего запроса': [0]},
- 'bittensor': {'Изменение за 24 часа': [-0.055168515669738356],
-               'Изменение с предыдущего запроса': [0]},
- 'ethereum': {'Изменение за 24 часа': [-1.6612432298216158],
-              'Изменение с предыдущего запроса': [0]},
- 'hyperliquid': {'Изменение за 24 часа': [-0.2041200824058869],
-                 'Изменение с предыдущего запроса': [0]},
- 'monero': {'Изменение за 24 часа': [-8.31115664834746],
-            'Изменение с предыдущего запроса': [0]},
- 'pax-gold': {'Изменение за 24 часа': [-0.712822548362917],
-              'Изменение с предыдущего запроса': [0]},
- 'quant-network': {'Изменение за 24 часа': [-7.419764625295189],
-                   'Изменение с предыдущего запроса': [0]},
- 'solana': {'Изменение за 24 часа': [-2.7409496011289636],
-            'Изменение с предыдущего запроса': [0]},
- 'tether-gold': {'Изменение за 24 часа': [-0.7226662295295294],
-                 'Изменение с предыдущего запроса': [0]},
- 'zcash': {'Изменение за 24 часа': [-5.872940188517272],
-           'Изменение с предыдущего запроса': [0]}}
-
-item = crypto[crypto_combo.get()]
-print(item)
-
-plt.plot(chart[item]['Изменение за 24 часа'],
-         marker='o', label='за 24 часа')
