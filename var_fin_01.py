@@ -6,8 +6,6 @@ from datetime import datetime
 import copy
 import random
 from time import sleep
-import pprint
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -132,14 +130,21 @@ def diagram():
         ax.plot(change24_items, marker='o', label='за 24 часа')
         ax.plot(change_last_items, marker='o', label='с предыдущего запроса')
 
+        if max(change24_items) >= max(change_last_items): # расположение меток значений относительно графика
+            xytext_change24 = (0, 10)
+            xytext_change_last = (0, -15)
+        else:
+            xytext_change24 = (0, -15)
+            xytext_change_last = (0, 10)
+
         for i, value in enumerate(change24_items):  # подписи значений
             ax.annotate(f'{value}%', (i, value),
-                        textcoords="offset points", xytext=(0, -15), ha='center',
+                        textcoords="offset points", xytext=xytext_change24, ha='center',
                         fontsize=8, color='DodgerBlue')
 
         for i, value in enumerate(change_last_items):  # подписи значений
             ax.annotate(f'{value}%', (i, value),
-                        textcoords="offset points", xytext=(0, 10), ha='center',
+                        textcoords="offset points", xytext=xytext_change_last, ha='center',
                         fontsize=8, color='OrangeRed')
 
         ax.set_title(f"Изменение курса {base_c}")
